@@ -14,6 +14,7 @@ type TestDatabase struct {
 }
 
 const (
+	postgresImage    = "postgres:14-alpine"
 	postgresUser     = "root"
 	postgresPassword = "password"
 	postgresDatabase = "simplebank"
@@ -28,7 +29,7 @@ func NewTestDatabase() (*TestDatabase, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	req := testcontainers.ContainerRequest{
-		Image:        "postgres:12",
+		Image:        postgresImage,
 		ExposedPorts: []string{"5432/tcp"},
 		AutoRemove:   true,
 		Env: map[string]string{

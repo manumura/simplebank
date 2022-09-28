@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	db "github.com/techschool/simplebank/db/sqlc"
+	"github.com/techschool/simplebank/service"
 	"github.com/techschool/simplebank/token"
 	"github.com/techschool/simplebank/util"
 )
@@ -36,15 +37,19 @@ func NewServer(config util.Config, store db.Store) (*Server, error) {
 		v.RegisterValidation("currency", validCurrency)
 	}
 
-	server.setupRouter()
+	router := server.setupRouter(config, store, tokenMaker)
+	server.router = router
 	return server, nil
 }
 
-func (server *Server) setupRouter() {
+func (server *Server) setupRouter(config util.Config, store db.Store, tokenMaker token.Maker) *gin.Engine {
 	router := gin.Default()
 
-	router.POST("/users", server.createUser)
-	router.POST("/users/login", server.loginUser)
+	us := service.NewUserService(config, store, tokenMaker)
+	uc := NewUserController(us)
+
+	router.POST("/users", uc.createUser)
+	router.POST("/users/login", uc.loginUser)
 	router.POST("/tokens/renew_access", server.renewAccessToken)
 
 	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
@@ -54,7 +59,7 @@ func (server *Server) setupRouter() {
 
 	authRoutes.POST("/transfers", server.createTransfer)
 
-	server.router = router
+	return router
 }
 
 // Start runs the HTTP server on a specific address.

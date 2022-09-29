@@ -29,7 +29,7 @@ func (c *UserController) createUser(ctx *gin.Context) {
 
 	user, err := c.service.CreateUser(ctx, req)
 	if err != nil {
-		if errors.Is(err, service.ErrAlreadyExists) {
+		if errors.Is(err, service.ErrUserAlreadyExists) {
 			ctx.JSON(http.StatusConflict, errorResponse(err))
 			return
 		}
@@ -52,7 +52,7 @@ func (c *UserController) loginUser(ctx *gin.Context) {
 
 	user, err := c.service.LoginUser(ctx, req)
 	if err != nil {
-		if errors.Is(err, service.ErrNotFound) {
+		if errors.Is(err, service.ErrUserNotFound) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}

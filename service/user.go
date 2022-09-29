@@ -28,15 +28,14 @@ func NewUserService(config util.Config, store db.Store, tokenMaker token.Maker) 
 	}
 }
 
-// package errors
+// TODO custom error handling : https://golangbot.com/custom-errors/
+// https://gobyexample.com/errors
 var (
-	ErrNotFound        = errors.New("user not found")
-	ErrAlreadyExists   = errors.New("user already exists")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrUserAlreadyExists   = errors.New("user already exists")
 	ErrInvalidPassword = errors.New("username or password is invalid")
 )
 
-// TODO custom error handling : https://golangbot.com/custom-errors/
-// https://gobyexample.com/errors
 func (service *UserService) CreateUser(ctx context.Context, req model.CreateUserRequest) (model.UserResponse, error) {
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
@@ -55,7 +54,7 @@ func (service *UserService) CreateUser(ctx context.Context, req model.CreateUser
 		if pqErr, ok := err.(*pq.Error); ok {
 			switch pqErr.Code.Name() {
 			case "unique_violation":
-				return model.UserResponse{}, ErrAlreadyExists
+				return model.UserResponse{}, ErrUserAlreadyExists
 			}
 		}
 		return model.UserResponse{}, err
@@ -74,7 +73,7 @@ func (service *UserService) LoginUser(ctx context.Context, req model.LoginUserRe
 	user, err := service.store.GetUser(ctx, req.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return model.LoginUserResponse{}, ErrNotFound
+			return model.LoginUserResponse{}, ErrUserNotFound
 		}
 		return model.LoginUserResponse{}, err
 	}

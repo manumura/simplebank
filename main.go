@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	_ "github.com/lib/pq"
@@ -22,14 +23,14 @@ import (
 )
 
 // TODO https://github.com/golangci/golangci-lint
-// TODO https://medium.com/@kelseyhightower/12-fractured-apps-1080c73d481c
 func main() {
 	config, err := util.LoadConfig(".", "app")
 	if err != nil {
 		log.Fatal("cannot load config:", err)
 	}
 
-	conn, err := sql.Open(config.DBDriver, config.DBSource)
+	// conn, err := sql.Open(config.DBDriver, config.DBSource)
+	conn, err := openDBConnection(config)
 	if err != nil {
 		log.Fatal("cannot connect to db:", err)
 	}
@@ -41,6 +42,29 @@ func main() {
 	// go runGatewayServer(config, store)
 	// runGrpcServer(config, store)
 	runGinServer(config, store)
+}
+
+// https://medium.com/@kelseyhightower/12-fractured-apps-1080c73d481c
+// docker run --name postgres -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -d postgres:14-alpine
+func openDBConnection(config util.Config) (*sql.DB, error) {
+	conn, err := sql.Open(config.DBDriver, config.DBSource)
+	if err != nil {
+		log.Println("cannot open db connection:", err)
+		return nil, err
+	}
+
+	var dbError error
+	maxAttempts := 10
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		dbError = conn.Ping()
+		if dbError == nil {
+			break
+		}
+		log.Printf("cannot connect to db (%d): %s\n", attempt, dbError)
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
+
+	return conn, dbError
 }
 
 func runGrpcServer(config util.Config, store db.Store) {

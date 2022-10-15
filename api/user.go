@@ -11,12 +11,15 @@ import (
 )
 
 type UserController struct {
-	service service.UserService
+	// https://stackoverflow.com/questions/28014591/nameless-fields-in-go-structs
+	// service service.UserService
+	service.UserService
 }
 
 func NewUserController(service *service.UserService) *UserController {
 	return &UserController{
-		service: *service,
+		// service: *service,
+		*service,
 	}
 }
 
@@ -27,7 +30,8 @@ func (c *UserController) createUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.service.CreateUser(ctx, req)
+	// user, err := c.service.CreateUser(ctx, req)
+	user, err := c.CreateUser(ctx, req)
 	if err != nil {
 		if errors.Is(err, service.ErrUserAlreadyExists) {
 			ctx.JSON(http.StatusConflict, errorResponse(err))
@@ -50,7 +54,8 @@ func (c *UserController) loginUser(ctx *gin.Context) {
 	req.UserAgent = ctx.Request.UserAgent()
 	req.ClientIP = ctx.ClientIP()
 
-	user, err := c.service.LoginUser(ctx, req)
+	// user, err := c.service.LoginUser(ctx, req)
+	user, err := c.LoginUser(ctx, req)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))

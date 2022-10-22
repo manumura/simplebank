@@ -55,14 +55,22 @@ func main() {
 func openDBConnection(config util.Config) (*sql.DB, error) {
 	conn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
-		log.Fatal().Err(err).Msg("cannot create new migrate instance")
+		log.Info().Err(err).Msg("cannot open db connection")
+		return nil, err
 	}
 
-	if err = migration.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatal().Err(err).Msg("failed to run migrate up")
+	var dbError error
+	maxAttempts := 10
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		dbError = conn.Ping()
+		if dbError == nil {
+			break
+		}
+		log.Info().Msgf("cannot connect to db (%d): %s\n", attempt, dbError)
+		time.Sleep(time.Duration(attempt) * time.Second)
 	}
 
-	log.Info().Msg("db migrated successfully")
+	return conn, dbError
 }
 
 func runGrpcServer(config util.Config, store db.Store) {

@@ -36,6 +36,7 @@ db_schema:
 sqlc:
 	sqlc generate
 
+# go test -v -cover ./... -run=TestCreateUser
 test:
 	go test -v -cover ./...
 

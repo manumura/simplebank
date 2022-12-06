@@ -46,14 +46,22 @@ func main() {
 	db.RunDBMigration(config.MigrationURL, config.DBSource)
 
 	store := db.NewStore(conn)
+
+	redisOpt := asynq.RedisClientOpt{
+		Addr: config.RedisAddress,
+	}
+
+	// taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
+	go runTaskProcessor(redisOpt, store)
 	// TODO test
-	// go runGatewayServer(config, store)
-	// runGrpcServer(config, store)
+	// go runGatewayServer(config, store, taskDistributor)
+	// runGrpcServer(config, store, taskDistributor)
 	runGinServer(config, store)
 }
 
 // https://medium.com/@kelseyhightower/12-fractured-apps-1080c73d481c
 // docker run --name postgres -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -d postgres:14-alpine
+// docker run --name redis -p 6379:6379 -d redis:alpine
 func openDBConnection(config util.Config) (*sql.DB, error) {
 	conn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
@@ -73,6 +81,15 @@ func openDBConnection(config util.Config) (*sql.DB, error) {
 	}
 
 	return conn, dbError
+}
+
+func runTaskProcessor(redisOpt asynq.RedisClientOpt, store db.Store) {
+	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store)
+	log.Info().Msg("start task processor")
+	err := taskProcessor.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to start task processor")
+	}
 }
 
 func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) {

@@ -26,7 +26,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// TODO https://github.com/golangci/golangci-lint
+// TODO rename github.com/techschool/simplebank
 func main() {
 	config, err := util.LoadConfig(".", "app")
 	if err != nil {

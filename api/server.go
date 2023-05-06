@@ -46,7 +46,7 @@ func (server *Server) setupRouter(config util.Config, store db.Store, tokenMaker
 	router := gin.Default()
 
 	us := service.NewUserService(config, store, tokenMaker)
-	uc := NewUserController(us)
+	uc := NewUserController(&us)
 
 	router.POST("/users", uc.createUser)
 	router.POST("/users/login", uc.loginUser)

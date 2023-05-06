@@ -12,16 +12,21 @@ import (
 	"github.com/techschool/simplebank/util"
 )
 
+type UserService interface {
+	CreateUser(ctx context.Context, req model.CreateUserRequest) (model.UserResponse, error)
+	LoginUser(ctx context.Context, req model.LoginUserRequest) (model.LoginUserResponse, error)
+}
+
 // TODO https://github.com/kyleconroy/sqlc/issues/710
 // https://github.com/kyleconroy/sqlc/discussions/711
-type UserService struct {
+type UserServiceImpl struct {
 	config     util.Config
 	store      db.Store
 	tokenMaker token.Maker
 }
 
-func NewUserService(config util.Config, store db.Store, tokenMaker token.Maker) *UserService {
-	return &UserService{
+func NewUserService(config util.Config, store db.Store, tokenMaker token.Maker) UserService {
+	return &UserServiceImpl{
 		store:      store,
 		config:     config,
 		tokenMaker: tokenMaker,
@@ -31,12 +36,12 @@ func NewUserService(config util.Config, store db.Store, tokenMaker token.Maker) 
 // TODO custom error handling : https://golangbot.com/custom-errors/
 // https://gobyexample.com/errors
 var (
-	ErrUserNotFound        = errors.New("user not found")
-	ErrUserAlreadyExists   = errors.New("user already exists")
-	ErrInvalidPassword = errors.New("username or password is invalid")
+	ErrUserNotFound      = errors.New("user not found")
+	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrInvalidPassword   = errors.New("username or password is invalid")
 )
 
-func (service *UserService) CreateUser(ctx context.Context, req model.CreateUserRequest) (model.UserResponse, error) {
+func (service *UserServiceImpl) CreateUser(ctx context.Context, req model.CreateUserRequest) (model.UserResponse, error) {
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
 		return model.UserResponse{}, err
@@ -69,7 +74,7 @@ func (service *UserService) CreateUser(ctx context.Context, req model.CreateUser
 	}, nil
 }
 
-func (service *UserService) LoginUser(ctx context.Context, req model.LoginUserRequest) (model.LoginUserResponse, error) {
+func (service *UserServiceImpl) LoginUser(ctx context.Context, req model.LoginUserRequest) (model.LoginUserResponse, error) {
 	user, err := service.store.GetUser(ctx, req.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {

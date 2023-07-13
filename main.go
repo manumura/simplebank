@@ -38,7 +38,7 @@ func main() {
 	}
 
 	// conn, err := sql.Open(config.DBDriver, config.DBSource)
-	conn, err := openDBConnection(config)
+	connPool, err := openDBConnection(config)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot connect to db")
 	}
@@ -62,8 +62,8 @@ func main() {
 // https://medium.com/@kelseyhightower/12-fractured-apps-1080c73d481c
 // docker run --name postgres -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -d postgres:14-alpine
 // docker run --name redis -p 6379:6379 -d redis:alpine
-func openDBConnection(config util.Config) (*sql.DB, error) {
-	conn, err := sql.Open(config.DBDriver, config.DBSource)
+func openDBConnection(config util.Config) (*pgxpool.Pool, error) {
+	connPool, err := pgxpool.New(context.Background(), config.DBSource)
 	if err != nil {
 		log.Info().Err(err).Msg("cannot open db connection")
 		return nil, err
@@ -72,7 +72,7 @@ func openDBConnection(config util.Config) (*sql.DB, error) {
 	var dbError error
 	maxAttempts := 10
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		dbError = conn.Ping()
+		dbError = connPool.Ping(context.Background())
 		if dbError == nil {
 			break
 		}
@@ -80,7 +80,7 @@ func openDBConnection(config util.Config) (*sql.DB, error) {
 		time.Sleep(time.Duration(attempt) * time.Second)
 	}
 
-	return conn, dbError
+	return connPool, dbError
 }
 
 func runTaskProcessor(config util.Config, redisOpt asynq.RedisClientOpt, store db.Store) {

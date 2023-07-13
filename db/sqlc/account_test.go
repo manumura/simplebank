@@ -60,12 +60,12 @@ func TestUpdateAccount(t *testing.T) {
 		Balance: util.RandomMoney(),
 	}
 
-	account2, err := testQueries.UpdateAccount(context.Background(), arg)
+	account2, err := testStore.UpdateAccount(context.Background(), arg)
 
 	log.Println(err)
 	log.Println(account2)
 
-	account3, err := testQueries.GetAccount(context.Background(), account1.ID)
+	account3, err := testStore.GetAccount(context.Background(), account1.ID)
 
 	log.Println(account3)
 
@@ -85,7 +85,7 @@ func TestAddAccountBalance(t *testing.T) {
 		ID:     account1.ID,
 		Amount: util.RandomMoney(),
 	}
-	account2, err := testQueries.AddAccountBalance(context.Background(), arg)
+	account2, err := testStore.AddAccountBalance(context.Background(), arg)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, account2)

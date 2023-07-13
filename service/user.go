@@ -2,10 +2,8 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
-	"github.com/lib/pq"
 	db "github.com/techschool/simplebank/db/sqlc"
 	"github.com/techschool/simplebank/model"
 	"github.com/techschool/simplebank/token"
@@ -56,11 +54,8 @@ func (service *UserServiceImpl) CreateUser(ctx context.Context, req model.Create
 
 	user, err := service.store.CreateUser(ctx, arg)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			switch pqErr.Code.Name() {
-			case "unique_violation":
-				return model.UserResponse{}, ErrUserAlreadyExists
-			}
+		if db.ErrorCode(err) == db.UniqueViolation {
+			return model.UserResponse{}, ErrUserAlreadyExists
 		}
 		return model.UserResponse{}, err
 	}
@@ -77,7 +72,7 @@ func (service *UserServiceImpl) CreateUser(ctx context.Context, req model.Create
 func (service *UserServiceImpl) LoginUser(ctx context.Context, req model.LoginUserRequest) (model.LoginUserResponse, error) {
 	user, err := service.store.GetUser(ctx, req.Username)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, db.ErrRecordNotFound) {
 			return model.LoginUserResponse{}, ErrUserNotFound
 		}
 		return model.LoginUserResponse{}, err

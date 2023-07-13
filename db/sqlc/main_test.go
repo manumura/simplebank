@@ -30,13 +30,13 @@ func TestMain(m *testing.M) {
 	}
 	println("Test database URL: ", dbURL)
 
-	testDB, err = sql.Open(config.DBDriver, dbURL)
+	connPool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		log.Fatal("cannot connect to db:", err)
 	}
 
 	RunDBMigration(config.MigrationURL, dbURL)
-	testQueries = New(testDB)
+	testStore = NewStore(connPool)
 
 	os.Exit(m.Run())
 }

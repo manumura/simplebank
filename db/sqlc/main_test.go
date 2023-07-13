@@ -1,17 +1,16 @@
 package db
 
 import (
-	"database/sql"
+	"context"
 	"log"
 	"os"
 	"testing"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/techschool/simplebank/util"
 )
 
-var testQueries *Queries
-var testDB *sql.DB
+var testStore Store
 
 // go test -race ./...
 func TestMain(m *testing.M) {

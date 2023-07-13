@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"net"
 	"net/http"
 	"os"
@@ -10,7 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hibiken/asynq"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -46,7 +45,7 @@ func main() {
 
 	db.RunDBMigration(config.MigrationURL, config.DBSource)
 
-	store := db.NewStore(conn)
+	store := db.NewStore(connPool)
 
 	redisOpt := asynq.RedisClientOpt{
 		Addr: config.RedisAddress,

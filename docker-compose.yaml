@@ -5,7 +5,7 @@ services:
     environment:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=secret
-      - POSTGRES_DB=simple_bank
+      - POSTGRES_DB=simplebank
     ports:
       - "5432:5432"
     volumes:
@@ -20,7 +20,7 @@ services:
       - "8080:8080"
       - "9090:9090"
     environment:
-      - DB_SOURCE=postgresql://root:secret@postgres:5432/simple_bank?sslmode=disable
+      - DB_SOURCE=postgresql://root:secret@postgres:5432/simplebank?sslmode=disable
       - REDIS_ADDRESS=redis:6379
     depends_on:
       - postgres

@@ -28,6 +28,7 @@ import (
 
 // TODO rename github.com/techschool/simplebank
 func main() {
+	log.Info().Msg("start main")
 	config, err := util.LoadConfig(".", "app")
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot load config")

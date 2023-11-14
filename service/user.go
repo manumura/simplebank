@@ -85,6 +85,7 @@ func (service *UserServiceImpl) LoginUser(ctx context.Context, req model.LoginUs
 
 	accessToken, accessPayload, err := service.tokenMaker.CreateToken(
 		user.Username,
+		user.Role,
 		service.config.AccessTokenDuration,
 	)
 	if err != nil {
@@ -93,6 +94,7 @@ func (service *UserServiceImpl) LoginUser(ctx context.Context, req model.LoginUs
 
 	refreshToken, refreshPayload, err := service.tokenMaker.CreateToken(
 		user.Username,
+		user.Role,
 		service.config.RefreshTokenDuration,
 	)
 	if err != nil {

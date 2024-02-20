@@ -11,7 +11,6 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -35,8 +34,10 @@ var interruptSignals = []os.Signal{
 	syscall.SIGINT,
 }
 
+// TODO rename github.com/techschool/simplebank
 func main() {
-	config, err := util.LoadConfig(".")
+	log.Info().Msg("start main")
+	config, err := util.LoadConfig(".", "app")
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot load config")
 	}
@@ -48,12 +49,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
 	defer stop()
 
-	connPool, err := pgxpool.New(ctx, config.DBSource)
+	connPool, err := db.OpenDBConnection(config)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot connect to db")
 	}
 
-	runDBMigration(config.MigrationURL, config.DBSource)
+	db.RunDBMigration(config.MigrationURL, config.DBSource)
 
 	store := db.NewStore(connPool)
 
@@ -61,13 +62,13 @@ func main() {
 		Addr: config.RedisAddress,
 	}
 
-	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
-
+	// taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
 	waitGroup, ctx := errgroup.WithContext(ctx)
 
 	runTaskProcessor(ctx, waitGroup, config, redisOpt, store)
-	runGatewayServer(ctx, waitGroup, config, store, taskDistributor)
-	runGrpcServer(ctx, waitGroup, config, store, taskDistributor)
+	// runGatewayServer(ctx, waitGroup, config, store, taskDistributor)
+	// runGrpcServer(ctx, waitGroup, config, store, taskDistributor)
+	runGinServer(config, store)
 
 	err = waitGroup.Wait()
 	if err != nil {
@@ -79,40 +80,6 @@ func main() {
 		log.Fatal().Err(err).Msg("error from wait group")
 	}
 }
-
-// TODO rename github.com/techschool/simplebank
-// func main() {
-// 	log.Info().Msg("start main")
-// 	config, err := util.LoadConfig(".", "app")
-// 	if err != nil {
-// 		log.Fatal().Err(err).Msg("cannot load config")
-// 	}
-
-// 	if config.Environment == "development" {
-// 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-// 	}
-
-// 	// conn, err := sql.Open(config.DBDriver, config.DBSource)
-// 	connPool, err := db.OpenDBConnection(config)
-// 	if err != nil {
-// 		log.Fatal().Err(err).Msg("cannot connect to db")
-// 	}
-
-// 	db.RunDBMigration(config.MigrationURL, config.DBSource)
-
-// 	store := db.NewStore(connPool)
-
-// 	redisOpt := asynq.RedisClientOpt{
-// 		Addr: config.RedisAddress,
-// 	}
-
-// 	// taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
-// 	go runTaskProcessor(config, redisOpt, store)
-// 	// TODO test
-// 	// go runGatewayServer(config, store, taskDistributor)
-// 	// runGrpcServer(config, store, taskDistributor)
-// 	runGinServer(config, store)
-// }
 
 // func runDBMigration(migrationURL string, dbSource string) {
 // 	migration, err := migrate.New(migrationURL, dbSource)

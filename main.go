@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"time"
+	"os/signal"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hibiken/asynq"
@@ -21,15 +21,14 @@ import (
 	"github.com/techschool/simplebank/pb"
 	"github.com/techschool/simplebank/util"
 	"github.com/techschool/simplebank/worker"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// TODO rename github.com/techschool/simplebank
 func main() {
-	log.Info().Msg("start main")
-	config, err := util.LoadConfig(".", "app")
+	config, err := util.LoadConfig(".")
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot load config")
 	}
@@ -38,13 +37,15 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 
-	// conn, err := sql.Open(config.DBDriver, config.DBSource)
-	connPool, err := openDBConnection(config)
+	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
+	defer stop()
+
+	connPool, err := pgxpool.New(ctx, config.DBSource)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot connect to db")
 	}
 
-	db.RunDBMigration(config.MigrationURL, config.DBSource)
+	runDBMigration(config.MigrationURL, config.DBSource)
 
 	store := db.NewStore(connPool)
 
@@ -52,37 +53,66 @@ func main() {
 		Addr: config.RedisAddress,
 	}
 
-	// taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
-	go runTaskProcessor(config, redisOpt, store)
-	// TODO test
-	// go runGatewayServer(config, store, taskDistributor)
-	// runGrpcServer(config, store, taskDistributor)
-	runGinServer(config, store)
-}
+	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
 
-// https://medium.com/@kelseyhightower/12-fractured-apps-1080c73d481c
-// docker run --name postgres -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -d postgres:14-alpine
-// docker run --name redis -p 6379:6379 -d redis:alpine
-func openDBConnection(config util.Config) (*pgxpool.Pool, error) {
-	connPool, err := pgxpool.New(context.Background(), config.DBSource)
+	waitGroup, ctx := errgroup.WithContext(ctx)
+
+	runTaskProcessor(ctx, waitGroup, config, redisOpt, store)
+	runGatewayServer(ctx, waitGroup, config, store, taskDistributor)
+	runGrpcServer(ctx, waitGroup, config, store, taskDistributor)
+
+	err = waitGroup.Wait()
 	if err != nil {
-		log.Info().Err(err).Msg("cannot open db connection")
-		return nil, err
+		log.Fatal().Err(err).Msg("error from wait group")
 	}
-
-	var dbError error
-	maxAttempts := 10
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		dbError = connPool.Ping(context.Background())
-		if dbError == nil {
-			break
-		}
-		log.Info().Msgf("cannot connect to db (%d): %s\n", attempt, dbError)
-		time.Sleep(time.Duration(attempt) * time.Second)
-	}
-
-	return connPool, dbError
 }
+
+// TODO rename github.com/techschool/simplebank
+// func main() {
+// 	log.Info().Msg("start main")
+// 	config, err := util.LoadConfig(".", "app")
+// 	if err != nil {
+// 		log.Fatal().Err(err).Msg("cannot load config")
+// 	}
+
+// 	if config.Environment == "development" {
+// 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+// 	}
+
+// 	// conn, err := sql.Open(config.DBDriver, config.DBSource)
+// 	connPool, err := db.OpenDBConnection(config)
+// 	if err != nil {
+// 		log.Fatal().Err(err).Msg("cannot connect to db")
+// 	}
+
+// 	db.RunDBMigration(config.MigrationURL, config.DBSource)
+
+// 	store := db.NewStore(connPool)
+
+// 	redisOpt := asynq.RedisClientOpt{
+// 		Addr: config.RedisAddress,
+// 	}
+
+// 	// taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
+// 	go runTaskProcessor(config, redisOpt, store)
+// 	// TODO test
+// 	// go runGatewayServer(config, store, taskDistributor)
+// 	// runGrpcServer(config, store, taskDistributor)
+// 	runGinServer(config, store)
+// }
+
+// func runDBMigration(migrationURL string, dbSource string) {
+// 	migration, err := migrate.New(migrationURL, dbSource)
+// 	if err != nil {
+// 		log.Fatal().Err(err).Msg("cannot create new migrate instance")
+// 	}
+
+// 	if err = migration.Up(); err != nil && err != migrate.ErrNoChange {
+// 		log.Fatal().Err(err).Msg("failed to run migrate up")
+// 	}
+
+// 	log.Info().Msg("db migrated successfully")
+// }
 
 func runTaskProcessor(config util.Config, redisOpt asynq.RedisClientOpt, store db.Store) {
 	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)

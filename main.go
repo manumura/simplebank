@@ -36,7 +36,6 @@ var interruptSignals = []os.Signal{
 
 // TODO rename github.com/techschool/simplebank
 func main() {
-	log.Info().Msg("start main")
 	config, err := util.LoadConfig(".", "app")
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot load config")
@@ -45,6 +44,8 @@ func main() {
 	if config.Environment == "development" {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
+
+	log.Info().Msg("start main")
 
 	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
 	defer stop()
@@ -68,7 +69,7 @@ func main() {
 	runTaskProcessor(ctx, waitGroup, config, redisOpt, store)
 	// runGatewayServer(ctx, waitGroup, config, store, taskDistributor)
 	// runGrpcServer(ctx, waitGroup, config, store, taskDistributor)
-	runGinServer(config, store)
+	runGinServer(ctx, waitGroup, config, store)
 
 	err = waitGroup.Wait()
 	if err != nil {
@@ -241,14 +242,35 @@ func runGatewayServer(
 	})
 }
 
-func runGinServer(config util.Config, store db.Store) {
+func runGinServer(ctx context.Context,
+	waitGroup *errgroup.Group, config util.Config, store db.Store) {
 	server, err := api.NewServer(config, store)
 	if err != nil {
-		log.Fatal().Err(err).Msg("cannot create server")
+		log.Fatal().Err(err).Msg("cannot create HTTP server")
 	}
 
-	err = server.Start(config.HTTPServerAddress)
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot start server")
-	}
+	waitGroup.Go(func() error {
+		log.Info().Msgf("start HTTP server at %s", config.HTTPServerAddress)
+
+		err = server.Start()
+		if err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			log.Error().Err(err).Msg("cannot start HTTP server")
+			return err
+		}
+
+		return nil
+	})
+
+	waitGroup.Go(func() error {
+		<-ctx.Done()
+		log.Info().Msg("graceful shutdown HTTP server")
+
+		server.Shutdown(context.Background())
+		log.Info().Msg("HTTP server is stopped")
+
+		return nil
+	})
 }

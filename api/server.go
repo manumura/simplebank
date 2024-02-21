@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -18,6 +20,7 @@ type Server struct {
 	store      db.Store
 	tokenMaker token.Maker
 	router     *gin.Engine
+	srv        *http.Server
 }
 
 // NewServer creates a new HTTP server and set up routing.
@@ -39,6 +42,13 @@ func NewServer(config util.Config, store db.Store) (*Server, error) {
 
 	router := server.setupRouter(config, store, tokenMaker)
 	server.router = router
+
+	srv := &http.Server{
+		Addr:    config.HTTPServerAddress,
+		Handler: router,
+	}
+	server.srv = srv
+
 	return server, nil
 }
 
@@ -63,8 +73,16 @@ func (server *Server) setupRouter(config util.Config, store db.Store, tokenMaker
 }
 
 // Start runs the HTTP server on a specific address.
-func (server *Server) Start(address string) error {
-	return server.router.Run(address)
+//
+//	func (server *Server) Start(address string) error {
+//		return server.router.Run(address)
+//	}
+func (server *Server) Start() error {
+	return server.srv.ListenAndServe()
+}
+
+func (server *Server) Shutdown(ctx context.Context) error {
+	return server.srv.Shutdown(ctx)
 }
 
 func errorResponse(err error) gin.H {

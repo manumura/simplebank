@@ -47,26 +47,24 @@ func main() {
 
 	log.Info().Msg("start main")
 
-	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
-	defer stop()
-
 	connPool, err := db.OpenDBConnection(config)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot connect to db")
 	}
 
 	db.RunDBMigration(config.MigrationURL, config.DBSource)
-
 	store := db.NewStore(connPool)
+
+	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
+	defer stop()
+	waitGroup, ctx := errgroup.WithContext(ctx)
 
 	redisOpt := asynq.RedisClientOpt{
 		Addr: config.RedisAddress,
 	}
-
 	// taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
-	waitGroup, ctx := errgroup.WithContext(ctx)
-
 	runTaskProcessor(ctx, waitGroup, config, redisOpt, store)
+
 	// runGatewayServer(ctx, waitGroup, config, store, taskDistributor)
 	// runGrpcServer(ctx, waitGroup, config, store, taskDistributor)
 	runGinServer(ctx, waitGroup, config, store)

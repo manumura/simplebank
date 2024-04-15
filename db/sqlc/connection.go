@@ -27,8 +27,8 @@ func OpenDBConnection(config util.Config) (*pgxpool.Pool, error) {
 			break
 		}
 		log.Info().Msgf("cannot connect to db (%d): %s\n", attempt, dbError)
-		// TODO sleep with exponential backoff
-		time.Sleep(time.Duration(attempt) * time.Second)
+		// sleep with exponential backoff
+		time.Sleep(time.Duration(attempt*attempt) * time.Second)
 	}
 
 	return connPool, dbError

@@ -73,11 +73,6 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("error from wait group")
 	}
-
-	err = waitGroup.Wait()
-	if err != nil {
-		log.Fatal().Err(err).Msg("error from wait group")
-	}
 }
 
 // func runDBMigration(migrationURL string, dbSource string) {
